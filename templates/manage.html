@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Management - FaceID</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <nav>
+            <div class="brand">
+                <i class="fa-solid fa-face-viewfinder"></i> FaceID
+            </div>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/attendance_feed">Live Check-in</a>
+                <a href="/register">Register</a>
+                <a href="/manage" class="active">Database</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="glass-panel">
+            <h1 class="page-title">Facial Profiles Database</h1>
+            <p class="subtitle">Manage enrolled users and their recognition accuracy profiles.</p>
+
+            <div class="table-container">
+                <table id="db-table">
+                    <thead>
+                        <tr>
+                            <th>User Name</th>
+                            <th>Biometric Samples (<span style="font-size:0.75rem">More = higher accuracy</span>)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" style="text-align: center;">Loading data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+                <button onclick="reloadEngine()" class="btn btn-primary">
+                    <i class="fa-solid fa-rotate-right"></i> Reload Recognition Engine
+                </button>
+            </div>
+            <p id="reload-msg" style="margin-top: 0.5rem; color: var(--success); display: none;">Engine synchronized!
+            </p>
+        </div>
+    </main>
+
+    <script>
+        async function fetchFaces() {
+            try {
+                const response = await fetch('/api/get_registered_faces');
+                const faces = await response.json();
+
+                const tableBody = document.querySelector('#db-table tbody');
+                tableBody.innerHTML = '';
+
+                if (faces.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No faces enrolled yet. Visit Registration.</td></tr>';
+                    return;
+                }
+
+                faces.forEach(face => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 500;">
+                            <i class="fa-solid fa-user" style="color: var(--primary); margin-right: 0.5rem;"></i>
+                            ${face.name}
+                        </td>
+                        <td>
+                            <span class="badge ${face.image_count > 1 ? 'badge-success' : ''}" style="${face.image_count === 1 ? 'background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid var(--glass-border);' : ''}">
+                                ${face.image_count} images captured
+                            </span>
+                        </td>
+                        <td>
+                            <button onclick="deleteFace('${face.name}')" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                                <i class="fa-solid fa-trash"></i> Delete Account
+                            </button>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Error fetching database:", e);
+            }
+        }
+
+        async function deleteFace(name) {
+            if (!confirm(`Are you sure you want to permanently delete all biometric data for ${name}?`)) return;
+
+            try {
+                const response = await fetch('/api/delete_face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (response.ok) {
+                    fetchFaces();
+                } else {
+                    alert("Failed to delete user.");
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function reloadEngine() {
+            try {
+                const btn = document.querySelector('button[onclick="reloadEngine()"]');
+                const defaultHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+                await fetch('/api/reload_faces', { method: 'POST' });
+
+                btn.innerHTML = defaultHtml;
+                const msg = document.getElementById('reload-msg');
+                msg.style.display = 'block';
+                setTimeout(() => msg.style.display = 'none', 3000);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Initial fetch
+        fetchFaces();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI FaceID Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="brand">
+                <i class="fa-solid fa-face-viewfinder"></i> FaceID
+            </div>
+            <div class="nav-links">
+                <a href="/" class="active">Dashboard</a>
+                <a href="/attendance_feed">Live Check-in</a>
+                <a href="/register">Register</a>
+                <a href="/manage">Database</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="glass-panel">
+            <h1 class="page-title">Welcome to FaceID</h1>
+            <p class="subtitle">Real-time biometric attendance monitoring system.</p>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-title">Today's Check-ins</span>
+                    <span class="stat-value" id="stat-count">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">System Status</span>
+                    <span class="stat-value" style="color: var(--success); font-size: 1.5rem; margin-top: 1rem;">
+                        <i class="fa-solid fa-circle-check"></i> Active & Listening
+                    </span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Quick Actions</span>
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-direction: column;">
+                        <a href="/attendance_feed" class="btn btn-primary"><i class="fa-solid fa-play"></i> Start Camera</a>
+                        <a href="/register" class="btn" style="background: rgba(255,255,255,0.1); color: white;"><i class="fa-solid fa-user-plus"></i> New User</a>
+                    </div>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 2rem; margin-bottom: 1rem; font-weight: 500;">Recent Activity</h2>
+            <div class="table-container">
+                <table id="logs-table">
+                    <thead>
+                        <tr>
+                            <th>User Name</th>
+                            <th>Time</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Logs appended here via JS -->
+                        <tr><td colspan="4" style="text-align: center;">Loading logs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function fetchLogs() {
+            try {
+                const response = await fetch('/api/today_logs');
+                const logs = await response.json();
+                
+                document.getElementById('stat-count').innerText = logs.length;
+                
+                const tableBody = document.querySelector('#logs-table tbody');
+                tableBody.innerHTML = '';
+                
+                if (logs.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No attendance records for today.</td></tr>';
+                    return;
+                }
+                
+                logs.forEach(log => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 600; display:flex; align-items:center; gap:0.5rem;">
+                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">
+                                ${log.name.charAt(0).toUpperCase()}
+                            </div>
+                            ${log.name}
+                        </td>
+                        <td>${log.time}</td>
+                        <td>${log.date}</td>
+                        <td><span class="badge badge-success">Present</span></td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Error fetching logs:", e);
+            }
+        }
+        
+        fetchLogs();
+        // Auto-refresh logs every 5 seconds
+        setInterval(fetchLogs, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration - FaceID</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <nav>
+            <div class="brand">
+                <i class="fa-solid fa-face-viewfinder"></i> FaceID
+            </div>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/attendance_feed">Live Check-in</a>
+                <a href="/register" class="active">Register</a>
+                <a href="/manage">Database</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="glass-panel" style="max-width: 700px; margin: 0 auto;">
+            <h1 class="page-title">Enroll New User</h1>
+            <p class="subtitle">Capture your face to build a recognition profile. Enter your name first.</p>
+
+            <div class="input-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" class="input-field" placeholder="e.g. Kota Naga Raviteja">
+            </div>
+
+            <div class="video-container" style="margin-bottom: 1.5rem;">
+                <video id="webcam" autoplay playsinline></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+            </div>
+
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button id="capture-btn" class="btn btn-primary" style="width: 100%;">
+                    <i class="fa-solid fa-camera"></i> Capture & Save Face
+                </button>
+            </div>
+
+            <div id="status-msg" style="margin-top: 1rem; text-align: center; font-weight: 500;"></div>
+        </div>
+    </main>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const nameInput = document.getElementById('name');
+        const statusMsg = document.getElementById('status-msg');
+
+        // Request webcam access independently of Flask stream
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Camera error:", err);
+                statusMsg.style.color = "var(--danger)";
+                statusMsg.innerText = "Camera access denied. Please grant permission.";
+            });
+
+        captureBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            if (!name) {
+                statusMsg.style.color = "var(--danger)";
+                statusMsg.innerText = "Please enter a name before capturing.";
+                return;
+            }
+
+            // Draw current video frame to canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            // Get Base64 JPEG
+            const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+
+            captureBtn.disabled = true;
+            captureBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+            statusMsg.style.color = "var(--text-main)";
+            statusMsg.innerText = "Uploading to server...";
+
+            try {
+                const response = await fetch('/api/register_face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, image: base64Image })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    statusMsg.style.color = "var(--success)";
+                    statusMsg.innerText = "Face registered successfully! You can add another or go to Dashboard.";
+                    nameInput.value = '';
+                } else {
+                    statusMsg.style.color = "var(--danger)";
+                    statusMsg.innerText = "Error: " + result.error;
+                }
+            } catch (err) {
+                statusMsg.style.color = "var(--danger)";
+                statusMsg.innerText = "Network error occurred.";
+            } finally {
+                captureBtn.disabled = false;
+                captureBtn.innerHTML = '<i class="fa-solid fa-camera"></i> Capture & Save Face';
+            }
+        });
+    </script>
+</body>
+
+</html>

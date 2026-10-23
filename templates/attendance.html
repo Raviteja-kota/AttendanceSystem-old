@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Interface - FaceID</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <nav>
+            <div class="brand">
+                <i class="fa-solid fa-face-viewfinder"></i> FaceID
+            </div>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/attendance_feed" class="active">Live Check-in</a>
+                <a href="/register">Register</a>
+                <a href="/manage">Database</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="glass-panel" style="max-width: 900px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div>
+                    <h1 class="page-title">Live Recognition</h1>
+                    <p class="subtitle" style="margin-bottom: 0;">Look at the camera for 3 seconds to log attendance.
+                    </p>
+                </div>
+            </div>
+
+            <div class="video-container">
+                <div class="overlay-status status-active">
+                    <span class="pulse-dot"></span> Streaming Active
+                </div>
+                <!-- Flask multipart generator feed -->
+                <img src="{{ url_for('video_feed') }}" alt="Webcam Feed" id="video-feed"
+                    onerror="this.src=''; this.alt='Camera Offline or Loading...'">
+            </div>
+
+            <div
+                style="margin-top: 1.5rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
+                <h3 id="current-recognition-status" style="font-weight: 500;">Scanning...</h3>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Audio synthesis for local voice playback (No MP3s required!)
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        let lastRecognizedTimestamp = 0;
+
+        async function pollRecognition() {
+            try {
+                const response = await fetch('/api/latest_recognition');
+                const data = await response.json();
+
+                const statusEl = document.getElementById('current-recognition-status');
+
+                // If it's a new event since last poll
+                if (data.timestamp > lastRecognizedTimestamp) {
+                    lastRecognizedTimestamp = data.timestamp;
+
+                    if (data.status === "recognized") {
+                        statusEl.innerHTML = `<i class="fa-solid fa-check-circle" style="color: var(--success)"></i> Welcome, <strong>${data.name}</strong>. Attendance logged.`;
+                        speak("Welcome, " + data.name + ". Attendance logged.");
+                    } else if (data.status === "unrecognized") {
+                        statusEl.innerHTML = `<i class="fa-solid fa-xmark-circle" style="color: var(--danger)"></i> Unknown Face Detected!`;
+                        speak("Face not recognized. Please register.");
+                    } else {
+                        statusEl.innerHTML = `Scanning...`;
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Poll every 1 second
+        setInterval(pollRecognition, 1000);
+    </script>
+</body>
+
+</html>
